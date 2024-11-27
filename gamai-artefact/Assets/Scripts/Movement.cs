@@ -4,11 +4,12 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System;
 
 public class Movement : MonoBehaviour
 {
-    [SerializeField] private GridSetup _world;
-    [SerializeField] private Vector3Int _position;
+    [SerializeField] public GridSetup _world;
+    [SerializeField] public Vector3Int _position;
     [SerializeField] private Path _path;
     [SerializeField] private int _pathIndex;
     [SerializeField] private int movementSpeed = 10;
@@ -22,6 +23,8 @@ public class Movement : MonoBehaviour
     [SerializeField] private Podium _podiumToInteract;
     [SerializeField] private List<Podium> _podiumList;
     [SerializeField] private GameObject _victoryScreen;
+
+    public event Action PlayerMoved;
 
     public bool _settingsMenuOpen = false;
     private Task MoveNextTask;
@@ -126,6 +129,10 @@ public class Movement : MonoBehaviour
             if (_interactWithPodiumWhenPathFinished) _podiumToInteract.Interact(this);
             return;
         }
+
+        // After player moves, invoke the event to trigger enemy movement
+        PlayerMoved?.Invoke();
+
         _pathIndex++;
     }
 
