@@ -40,6 +40,7 @@ public class Enemy : MonoBehaviour
         UpdatePath();
     }
 
+
     private async Task FollowPlayerPath()
     {
         if (_path != null && _path.Nodes.Count > 1)
@@ -89,6 +90,10 @@ public class Enemy : MonoBehaviour
             direction = target - transform.position;
             transform.position += (Vector3)(movementSpeed * Time.deltaTime * direction.normalized);
             await Task.Yield();
+        }
+        if (playerMovement != null)
+        {
+            playerMovement.EnemyFinishedMoving();
         }
 
         // Here you could add animation logic later if needed
