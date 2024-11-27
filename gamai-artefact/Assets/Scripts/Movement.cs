@@ -29,7 +29,7 @@ public class Movement : MonoBehaviour
     public bool _settingsMenuOpen = false;
     private Task MoveNextTask;
     private Task TraversePathTask;
-    private int _enemiesMoving = 0;
+    public int enemiesMoving = 0;
 
     private void Start()
     {
@@ -110,11 +110,6 @@ public class Movement : MonoBehaviour
         }
     }
 
-    public void EnemyFinishedMoving()
-    {
-        _enemiesMoving--;
-    }
-
     public async Task MoveNext()
     {
         await Task.Delay(100);
@@ -136,11 +131,10 @@ public class Movement : MonoBehaviour
         }
 
         PlayerMoved?.Invoke();
-        _enemiesMoving++; // Increment when player moves
 
         await Task.Run(() =>
         {
-            while (_enemiesMoving > 0) ; // Wait for all enemies to finish moving
+            while (enemiesMoving > 0) ; // Wait for all enemies to finish moving
         });
 
         _pathIndex++;

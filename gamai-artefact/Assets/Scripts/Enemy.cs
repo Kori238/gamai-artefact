@@ -82,6 +82,7 @@ public class Enemy : MonoBehaviour
 
     private async Task MoveToCell(Node node)
     {
+        playerMovement.enemiesMoving++;
         Vector3 target = _grid.GetCenter(node.Position);
         Vector2 direction = target - transform.position;
 
@@ -91,11 +92,7 @@ public class Enemy : MonoBehaviour
             transform.position += (Vector3)(movementSpeed * Time.deltaTime * direction.normalized);
             await Task.Yield();
         }
-        if (playerMovement != null)
-        {
-            playerMovement.EnemyFinishedMoving();
-        }
-
+        playerMovement.enemiesMoving--;
         // Here you could add animation logic later if needed
     }
 
