@@ -131,7 +131,6 @@ public class Movement : MonoBehaviour
         }
 
         PlayerMoved?.Invoke();
-
         await Task.Run(() =>
         {
             while (enemiesMoving > 0) ; // Wait for all enemies to finish moving
