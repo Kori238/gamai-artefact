@@ -39,7 +39,7 @@ public class Enemy : MonoBehaviour
         los = new LineOfSight(_grid);
 
         // Set an initial last known position to the player's start
-        lastKnownPlayerPosition = playerMovement._position;
+        lastKnownPlayerPosition = Vector3Int.one * 999;
     }
 
     private void OnDestroy()
@@ -55,9 +55,9 @@ public class Enemy : MonoBehaviour
         UpdateAndMove();
     }
 
-    private async void UpdatePathToLastKnownPosition()
+    private async Task UpdatePathToLastKnownPosition()
     {
-        if (lastKnownPlayerPosition == Vector3Int.zero) return; // Safety check
+        if (lastKnownPlayerPosition == Vector3Int.one * 999) return; // Check if there isn't a last known position
 
         Vector3Int currentPos = WorldToCellPosition(transform.position);
         Node currentNode = _grid.GetNodeFromCell(currentPos.x, currentPos.y, currentPos.z);
@@ -99,7 +99,7 @@ public class Enemy : MonoBehaviour
 
             if (node != null && node.OccupiedBy == NodeOccupiers.None) // Move only if empty
             {
-                StartCoroutine(MoveToCell(node));
+                MoveToCell(node);
                 return;
             }
         }
@@ -107,19 +107,31 @@ public class Enemy : MonoBehaviour
 
     private async Task FollowPlayerPath()
     {
-        // ... Existing logic but with LOS check ...
-        // Before moving, update last known position if player in sight
         if (los.HasLineOfSight(WorldToCellPosition(transform.position), playerMovement._position))
         {
             lastKnownPlayerPosition = playerMovement._position;
         }
 
-        // Current movement code here
+        if (_path != null && _path.Nodes.Count > 1)
+        {
+            var nextNode = _path.Nodes[_pathIndex > _path.Nodes.Count - 1 ? _path.Nodes.Count - 1 : _pathIndex];
+            await MoveToCell(nextNode);
+            _pathIndex++;
+
+            // Reset path index if we've reached the end
+            if (_pathIndex >= _path.Nodes.Count)
+            {
+                _pathIndex = 0;
+                _path = null;
+            }
+        }
+        else
+        {
+            _pathIndex = 0;
+        }
     }
 
-    // ... existing WorldToCellPosition function ...
-
-    private IEnumerator MoveToCell(Node node)
+    private async Task MoveToCell(Node node)
     {
         playerMovement.enemiesMoving++;
         Vector3 target = _grid.GetCenter(node.Position);
@@ -130,7 +142,7 @@ public class Enemy : MonoBehaviour
         {
             float moved = Mathf.Min(distanceThisFrame, Vector3.Distance(transform.position, target));
             transform.position += (direction.normalized * moved);
-            yield return null;
+            await Task.Yield();
         }
 
         playerMovement.enemiesMoving--;

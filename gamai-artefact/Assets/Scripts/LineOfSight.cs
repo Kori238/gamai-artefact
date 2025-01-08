@@ -11,11 +11,12 @@ public class LineOfSight
 
     public bool HasLineOfSight(Vector3Int origin, Vector3Int destination)
     {
+        origin.z += 1;
+        destination.z += 1;
         Vector3 direction = (destination - origin);
         int distance = Mathf.RoundToInt(direction.magnitude);
 
-        Vector3 stepIncrement = direction.normalized * 1f; // 1f or a smaller step for precision
-
+        Vector3 stepIncrement = direction.normalized;
         Vector3 currentPos = origin + stepIncrement; // Move one step ahead to not check origin cell
 
         for (int i = 0; i <= distance; i++)
@@ -32,8 +33,7 @@ public class LineOfSight
                 continue;
             }
 
-            // Check for tiles that might block line of sight, ensure z within bounds
-            if (!IsWalkableOrEmpty(grid.GetNodeFromCell(gridPos.x, gridPos.y, currentZ).OccupiedBy, gridPos))
+            if (IsObstruction(gridPos))
             {
                 return false;
             }
@@ -44,14 +44,9 @@ public class LineOfSight
         return true;
     }
 
-    // New method to check if a position is walkable or empty for Line of Sight
-    private bool IsWalkableOrEmpty(NodeOccupiers occupier, Vector3Int position)
+    private bool IsObstruction(Vector3Int position)
     {
-        if (occupier != NodeOccupiers.None) return false; // Not empty
-
         var tile = grid.GetTile(position);
-
-        // Assuming CustomTile has a property 'walkable', tweak this as necessary based on your CustomTile implementation
-        return tile == null || (tile && tile.walkable);
+        return tile != null;
     }
 }

@@ -80,6 +80,26 @@ public class NodeGrid
     {
         return HasTile(position) && !HasTile(new Vector3Int(position.x, position.y, position.z + 1));
     }
+
+    public void SetTile(Vector3Int position, CustomTile tile)
+    {
+        Tilemaps[position.z].SetTile(new Vector3Int(position.x, position.y, 0), tile);
+    }
+
+    public void FillArea(Vector3Int pos1, Vector3Int pos2, CustomTile tile)
+    {
+        //tile = Tilemaps[0].GetTile<CustomTile>(new Vector3Int(0, 0, 0));
+        for (int x = pos1.x; x < pos2.x; x++)
+        {
+            for (int y = pos1.y; y < pos2.y; y++)
+            {
+                SetTile(new Vector3Int(x, y, pos1.z), tile);
+                Debug.Log($"{x}, {y}, {tile}");
+                
+            }
+        }
+        Debug.Log(Tilemaps[0].GetTile<CustomTile>(new Vector3Int(0, 0, 0)));
+    }
 }
 
 public class Path
