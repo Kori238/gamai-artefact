@@ -4261,11 +4261,11 @@ PrefabInstance:
       objectReference: {fileID: 11400000, guid: 4296c3c570449544abd9555cd59ea2af, type: 2}
     - target: {fileID: 6156907202579450466, guid: 24d6ce5ebcc3b4042873c9419c8d954e, type: 3}
       propertyPath: gridDimensions.x
-      value: 120
+      value: 80
       objectReference: {fileID: 0}
     - target: {fileID: 6156907202579450466, guid: 24d6ce5ebcc3b4042873c9419c8d954e, type: 3}
       propertyPath: gridDimensions.y
-      value: 120
+      value: 80
       objectReference: {fileID: 0}
     - target: {fileID: 6156907202579450469, guid: 24d6ce5ebcc3b4042873c9419c8d954e, type: 3}
       propertyPath: m_RootOrder
