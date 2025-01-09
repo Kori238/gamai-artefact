@@ -16,6 +16,7 @@ public class RoomEditor : MonoBehaviour
     public bool attemptLoad = false;
     public bool attemptSave = false;
     public string roomDirPath = "C:/Users/kori/gamai-artefact/gamai-artefact/Assets/Rooms/";
+    public RoomTypes roomType = RoomTypes.Debug;
     public GridSetup world;
 
     public void Update()
@@ -68,7 +69,10 @@ public class RoomEditor : MonoBehaviour
         {
             ReferenceLoopHandling = ReferenceLoopHandling.Ignore
         };
-        string path = roomDirPath + newRoomName + ".json";
+        print(roomType);
+        string dirPath = roomDirPath + roomType;
+        string path = dirPath + "/" + newRoomName + ".json";
+        if (!Directory.Exists(dirPath)) Directory.CreateDirectory(dirPath);
         try
         {
             if (File.Exists(path))
@@ -99,10 +103,12 @@ public class RoomEditor : MonoBehaviour
 public class Room
 {
     public WrappedTilemaps wrappedTilemaps;
+    
 
     public Room(WrappedTilemaps wrappedTilemaps)
     {
         this.wrappedTilemaps = wrappedTilemaps;
+        
     }
 }
 
@@ -207,4 +213,15 @@ public class TileDictionary
             }
         }
     }
+}
+
+public enum RoomTypes
+{
+    Large,
+    LShape,
+    Long,
+    VeryLong,
+    Debug,
+    Special,
+    Small
 }
