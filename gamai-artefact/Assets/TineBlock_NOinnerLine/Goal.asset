@@ -37,3 +37,4 @@ MonoBehaviour:
   layerTraversal: 0
   walkable: 1
   goal: 1
+  tileName: Goal

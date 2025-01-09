@@ -1,11 +1,16 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using JetBrains.Annotations;
 using Unity.VisualScripting;using UnityEditor;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using UnityEngine.UIElements;
+using Newtonsoft.Json;
+using static UnityEditor.Experimental.GraphView.GraphView;
 
+[Serializable]
 public class Node
 {
     public int FCost, GCost, HCost;
@@ -36,9 +41,11 @@ public class NodeGrid
     public readonly Vector3Int Dimensions;
     public List<Tilemap> Tilemaps;
     public readonly Node[,,] Nodes;
+    public Dictionary<string, CustomTile> TileDictionary = new();
 
     public NodeGrid(int width, int height, List<Tilemap> tilemaps)
     {
+        CreateTileDictionary();
         var layers = tilemaps.Count;
         Dimensions = new(width, height, layers);
         Tilemaps = tilemaps;
@@ -53,6 +60,79 @@ public class NodeGrid
                     Nodes[x, y, z] = new Node(position);
                 }
             }
+        }
+    }
+    public NodeGrid(WrappedGrid wrappedGrid)
+    {
+        CreateTileDictionary();
+        GridSetup gridObject = GameObject.FindObjectOfType<GridSetup>();
+        Tilemaps = gridObject.Tilemaps;
+        foreach (KeyValuePair<Vector3Int, string> entry in wrappedGrid.Tilemaps)
+        {
+            Vector3Int pos = entry.Key;
+            CustomTile tile = TileDictionary.GetValueOrDefault(entry.Value);
+            Tilemaps[pos.z].SetTile(new Vector3Int(pos.x, pos.y, 0), tile);
+        }
+        Dimensions = new(gridObject.gridDimensions.x, gridObject.gridDimensions.y, Tilemaps.Count);
+        Nodes = new Node[gridObject.gridDimensions.x, gridObject.gridDimensions.y, Tilemaps.Count];
+        for (var z = 0; z < Tilemaps.Count; z++)
+        {
+            for (var x = 0; x < gridObject.gridDimensions.x; x++)
+            {
+                for (var y = 0; y < gridObject.gridDimensions.y; y++)
+                {
+                    var position = new Vector3Int(x - gridObject.gridDimensions.x / 2, y - gridObject.gridDimensions.y / 2, z);
+                    Nodes[x, y, z] = new Node(position);
+                }
+            }
+        }
+    }
+
+    private void CreateTileDictionary()
+    {
+        foreach (var asset in AssetDatabase.FindAssets("t:CustomTile"))
+        {
+            var tile = AssetDatabase.LoadAssetAtPath<CustomTile>(AssetDatabase.GUIDToAssetPath(asset));
+            try
+            {
+                TileDictionary.Add(tile.name, tile);
+            }
+            catch (ArgumentException e)
+            {
+                Debug.LogError($"Tile could not be added to dictionary as it's name is duplicate {e.Message}, {e.StackTrace}");
+            }
+        }
+    }
+
+    public Dictionary<Vector3Int, string> WrapTilemaps()
+    {
+        Dictionary<Vector3Int, string> wrappedTilemaps = new();
+        for (int z = 0; z < Tilemaps.Count; z++)
+        {
+            for (int x = 0; x < Dimensions.x; x++)
+            {
+                for (int y = 0; y < Dimensions.y; y++)
+                {
+                    Tilemap tilemap = Tilemaps[z];
+                    Vector3Int position = new Vector3Int(x, y, z);
+                    if (tilemap.HasTile(position))
+                    {
+                        CustomTile tile = tilemap.GetTile<CustomTile>(position);
+                        wrappedTilemaps.Add(position, tile.name);
+                    }
+                }
+            }
+        }
+        return wrappedTilemaps;
+    }
+
+    public void UnwrapTilemaps(Dictionary<Vector3Int, string> wrappedTilemaps)
+    {
+        foreach (KeyValuePair<Vector3Int, string> entry in wrappedTilemaps)
+        {
+            Vector3Int pos = entry.Key;
+            CustomTile tile = TileDictionary.GetValueOrDefault(entry.Value);
+            Tilemaps[pos.z].SetTile(new Vector3Int(pos.x, pos.y, 0), tile);
         }
     }
 
@@ -99,6 +179,26 @@ public class NodeGrid
             }
         }
         Debug.Log(Tilemaps[0].GetTile<CustomTile>(new Vector3Int(0, 0, 0)));
+    }
+}
+
+
+public class WrappedGrid
+{
+    public readonly Vector3Int Dimensions;
+    public Dictionary<Vector3Int, string> Tilemaps;
+
+    public WrappedGrid(NodeGrid grid)
+    {
+        Tilemaps = grid.WrapTilemaps();
+        Dimensions = grid.Dimensions;
+    }
+
+    [JsonConstructor]
+    public WrappedGrid(Vector3Int dimensions, Dictionary<Vector3Int, string> tilemaps)
+    {
+        Tilemaps = tilemaps;
+        Dimensions = dimensions;
     }
 }
 

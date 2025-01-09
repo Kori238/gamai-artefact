@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e3de9c38d2a47a249bbc649a80b892d6, type: 3}
-  m_Name: GreenGrass2
+  m_Name: Barrier
   m_EditorClassIdentifier: 
-  m_Sprite: {fileID: 1289394427, guid: 16edcd697d8380744811028d84c4f450, type: 3}
+  m_Sprite: {fileID: -1373130165, guid: 53e24206dd72a23439921f4ba05d4c65, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Transform:
     e00: 1
@@ -35,4 +35,6 @@ MonoBehaviour:
   m_Flags: 1
   m_ColliderType: 1
   layerTraversal: 0
-  walkable: 1
+  walkable: 0
+  goal: 0
+  tileName: Barrier

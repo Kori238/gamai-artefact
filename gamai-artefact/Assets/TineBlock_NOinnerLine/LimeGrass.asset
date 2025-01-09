@@ -34,4 +34,7 @@ MonoBehaviour:
   m_InstancedGameObject: {fileID: 0}
   m_Flags: 1
   m_ColliderType: 1
-  customField: 0
+  layerTraversal: 0
+  walkable: 1
+  goal: 0
+  tileName: LimeGrass

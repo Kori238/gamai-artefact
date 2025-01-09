@@ -36,3 +36,5 @@ MonoBehaviour:
   m_ColliderType: 1
   layerTraversal: 1
   walkable: 1
+  goal: 0
+  tileName: NWStairs
