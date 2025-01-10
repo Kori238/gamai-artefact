@@ -12,6 +12,7 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using Random = System.Random;
 using static UnityEngine.UI.Image;
+using Vector3 = UnityEngine.Vector3;
 
 public class ProceduralGeneration : MonoBehaviour
 {
@@ -23,6 +24,7 @@ public class ProceduralGeneration : MonoBehaviour
     public List<int> roomChances;
 
     public List<Vector3Int> roomOrigins;
+    public List<float> roomOriginsDistances;
     public Vector3Int startRoomOrigin;
     public CustomTile pathTile;
 
@@ -97,11 +99,23 @@ public class ProceduralGeneration : MonoBehaviour
             }
         }
 
-        foreach (var roomOrigin in roomOrigins)
+
+        int max = roomOrigins.Count;
+        for (int i = 0; i < max; i++)
         {
-            Debug.Log(roomOrigin);
-            Debug.Log(startRoomOrigin);
-            ConnectRooms(roomOrigin, startRoomOrigin);
+            float lowestValue = float.MaxValue;
+            int index = 0;
+            foreach (float value in roomOriginsDistances)
+            {
+                if (value < lowestValue)
+                {
+                    lowestValue = value;
+                    index = roomOriginsDistances.IndexOf(value);
+                }
+            }
+            ConnectRooms(roomOrigins[index], startRoomOrigin);
+            roomOriginsDistances.Remove(roomOriginsDistances[index]);
+            roomOrigins.Remove(roomOrigins[index]);
         }
     }
 
@@ -145,6 +159,7 @@ public class ProceduralGeneration : MonoBehaviour
             world.Tilemaps[pos.z].SetTile(new Vector3Int(pos.x, pos.y, 0), tile);
         }
         roomOrigins.Add(positionOffset + room.roomOrigin);
+        roomOriginsDistances.Add((positionOffset + room.roomOrigin - startRoomOrigin).magnitude);
         return true;
     }
 
