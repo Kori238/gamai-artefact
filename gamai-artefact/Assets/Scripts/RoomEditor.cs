@@ -18,6 +18,7 @@ public class RoomEditor : MonoBehaviour
     public string roomDirPath = "C:/Users/kori/gamai-artefact/gamai-artefact/Assets/Rooms/";
     public RoomTypes roomType = RoomTypes.Debug;
     public GridSetup world;
+    public Vector3Int roomOrigin;
 
     public void Update()
     {
@@ -44,7 +45,7 @@ public class RoomEditor : MonoBehaviour
         {
             tilemap.ClearAllTiles();
         }
-        string path = roomDirPath + newRoomName + ".json";
+        string path = roomDirPath + roomType + "/" + newRoomName + ".json";
         if (!File.Exists(path))
         {
             Debug.LogError($"Cannot load file at {path} as it does not exist");
@@ -53,6 +54,7 @@ public class RoomEditor : MonoBehaviour
         try
         {
             Room room= JsonConvert.DeserializeObject<Room>(File.ReadAllText(path));
+            roomOrigin = room.roomOrigin;
             room.wrappedTilemaps.Unwrap(world);
         }
         catch (Exception e)
@@ -87,7 +89,7 @@ public class RoomEditor : MonoBehaviour
 
             using var stream = File.Create(path);
             stream.Close();
-            Room data = new Room(new WrappedTilemaps(world));
+            Room data = new Room(new WrappedTilemaps(world), roomType, roomOrigin);
             File.WriteAllText(path, JsonConvert.SerializeObject(data, Formatting.Indented, settings));
             return true;
         }
@@ -103,12 +105,14 @@ public class RoomEditor : MonoBehaviour
 public class Room
 {
     public WrappedTilemaps wrappedTilemaps;
-    
+    public RoomTypes roomType;
+    public Vector3Int roomOrigin;
 
-    public Room(WrappedTilemaps wrappedTilemaps)
+    public Room(WrappedTilemaps wrappedTilemaps, RoomTypes roomType = RoomTypes.Small, Vector3Int? roomOrigin = null)
     {
+        this.roomOrigin = roomOrigin ?? new Vector3Int(7, 7, 0);
         this.wrappedTilemaps = wrappedTilemaps;
-        
+        this.roomType = roomType;
     }
 }
 
