@@ -214,7 +214,7 @@ public class AStar
     private const int DIAGONAL_COST = 14;
     private const int STRAIGHT_COST = 10;
     private const int LAYER_COST = 24;
-    private const int NULL_TILE_PENALTY = 50; // Penalty for traversing null tiles
+    private const int NULL_TILE_PENALTY = 25; // Penalty for traversing null tiles
 
     private readonly NodeGrid _grid;
     private List<Node> _searchedNodes;
@@ -377,7 +377,7 @@ public class AStar
                   direction.y > _grid.Dimensions.y / 2 || direction.y < -_grid.Dimensions.y / 2))
             {
                 var adjacentPosition = new Vector3Int(direction.x, direction.y, position.z);
-                var hasTile = _grid.HasTile(adjacentPosition);
+                var hasTile = _grid.CheckTileValid(adjacentPosition);
 
                 // Add node if it has a tile or null tiles are allowed
                 if ((hasTile || allowNullTiles) &&
