@@ -7,9 +7,11 @@ using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
 using System.Xml.Schema;
+using TMPro;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.PlayerLoop;
 using UnityEngine.Tilemaps;
 using Random = System.Random;
 using static UnityEngine.UI.Image;
@@ -29,6 +31,8 @@ public class ProceduralGeneration : MonoBehaviour
     public List<float> roomOriginsDistances;
     public Vector3Int startRoomOrigin;
     public CustomTile pathTile;
+    public CustomTile pathStairTileY;
+    public CustomTile pathStairTileX;
     public Camera generationCamera;
     public Camera playerCamera;
 
@@ -68,12 +72,11 @@ public class ProceduralGeneration : MonoBehaviour
         Random rand = new Random();
         RoomTypes roomToSpawnType = new();
         Room centerRoom = allRooms.GetValueOrDefault(RoomTypes.Small)[0];
-        await SpawnRoom(centerRoom, new Vector3Int(100, 100, 0));
-        startRoomOrigin = new Vector3Int(106, 106, 0);
+        await SpawnRoom(centerRoom, new Vector3Int(100, 100, 3), false);
+        startRoomOrigin = new Vector3Int(106, 106, 3);
         for (int i = 0; i < roomCount; i++)
         {
             int percentChoice = rand.Next(100);
-            Debug.Log(percentChoice);
             for (int j = 0; j < roomChances.Count; j++)
             {
                 if (percentChoice > roomChances[j])
@@ -93,7 +96,13 @@ public class ProceduralGeneration : MonoBehaviour
             {
                 attempts++;
                 int sign = rand.Next(-1, 2);
-                Vector3Int offset = new Vector3Int(rand.Next(-1, 2) * (int)Math.Pow(rand.Next(8), 2) + 100, rand.Next(-1, 2) * (int)Math.Pow(rand.Next(8), 2) + 100, 0);
+                int xPos = rand.Next(-1, 2) * (int)Math.Pow(rand.Next(8), 2) + 100;
+                int yPos = rand.Next(-1, 2) * (int)Math.Pow(rand.Next(8), 2) + 100;
+                int zPos = rand.Next(-3,1) + (int)((xPos + yPos) / 40);
+                zPos = Mathf.Min(5, zPos);
+                zPos = Mathf.Max(0, zPos);
+                Debug.Log($"{zPos}, {xPos + yPos}");
+                Vector3Int offset = new Vector3Int(xPos, yPos, zPos);
                 spawned = await SpawnRoom(roomToSpawn, offset);
             }
         }
@@ -127,7 +136,8 @@ public class ProceduralGeneration : MonoBehaviour
                     index = roomOriginsDistances.IndexOf(value);
                 }
             }
-            await ConnectRooms(startRoomOrigin, roomOrigins[index]);
+            //await ConnectRooms(startRoomOrigin, roomOrigins[index]);
+            await ConnectRooms(roomOrigins[index], startRoomOrigin);
             roomOriginsDistances.Remove(roomOriginsDistances[index]);
             roomOrigins.Remove(roomOrigins[index]);
         }
@@ -137,67 +147,139 @@ public class ProceduralGeneration : MonoBehaviour
 
     public async Task ConnectRooms(Vector3Int originA, Vector3Int originB)
     {
-        List<List<Vector3Int>> pathAreaToFill = new();
-        List<List<Vector3Int>> pathAreaToClear = new();
-        Debug.Log("test");
+        List<Vector3Int> tilesToFill = new();
+        List<Vector3Int> tilesToClear = new();
+        List<Vector3Int> tilesToFillStairsY = new();
+        List<Vector3Int> tilesToFillStairsX = new();
         Path path = world.Pathfinding.FindPath(originA.x, originA.y, originA.z, originB.x, originB.y, originB.z, true);
-        if (path == null) return;
-        bool previousNodeHasTile = false;
-        // calculate path in both directions for more consistent fill
-        List<Node> bothDirectionNodes = new List<Node>();
-        foreach (Node n in path.Nodes)
+        if (path == null)
         {
-            bothDirectionNodes.Add(n);
+            Debug.Log($"Path could not be found between A: {originA}, B: {originB}");
+            return;
         }
 
-        path.Nodes.Reverse();
-        foreach (Node n in path.Nodes)
-        {
-            bothDirectionNodes.Add(n);
-        }
+        Node previousNode = path.Nodes[0];
+        Node nextNode = path.Nodes[1];
 
-        foreach (Node n in bothDirectionNodes)
+        for (int i = 0; i < path.Nodes.Count; i++)
         {
-            bool thisNodeHasTile = world.Grid.HasTile(n.Position);
-            if (thisNodeHasTile && previousNodeHasTile)
+            Node n = path.Nodes[i];
+            if (i < path.Nodes.Count - 1) nextNode = path.Nodes[i + 1];
+            if (i > 0) previousNode = path.Nodes[i - 1];
+            if (world.Grid.HasTile(n.Position) && world.Grid.HasTile(nextNode.Position) && world.Grid.HasTile(previousNode.Position)) continue;
+            Vector3Int nodePositionDelta = n.Position - previousNode.Position;
+            bool fillingStairs = false;
+            if (previousNode.Position.z < n.Position.z || nextNode.Position.z < n.Position.z)
             {
-                previousNodeHasTile = thisNodeHasTile;
-                continue;
+                if (nodePositionDelta.x != 0 && nodePositionDelta.y != 0) tilesToFill.Add(new Vector3Int(n.Position.x, n.Position.y, n.Position.z));
+                else
+                {
+                    if (nodePositionDelta.x != 0) tilesToFillStairsY.Add(new Vector3Int(n.Position.x, n.Position.y, n.Position.z));
+                    else tilesToFillStairsX.Add(new Vector3Int(n.Position.x, n.Position.y, n.Position.z));
+                    tilesToFill.Add(new Vector3Int(n.Position.x, n.Position.y, n.Position.z - 1));
+                }
+                fillingStairs = true;
+            }
+            else
+                tilesToFill.Add(new Vector3Int(n.Position.x, n.Position.y, n.Position.z));
+            tilesToClear.Add(new Vector3Int(n.Position.x, n.Position.y, n.Position.z + 1));
+            tilesToClear.Add(new Vector3Int(n.Position.x, n.Position.y, n.Position.z + 2));
+
+            if (nodePositionDelta.x != 0 && nodePositionDelta.y != 0) // Path is moving diagonally
+            {
+                if (fillingStairs)
+                {
+                    tilesToFillStairsX.Add(
+                        new Vector3Int(n.Position.x + nodePositionDelta.x, n.Position.y, n.Position.z));
+                    tilesToFillStairsY.Add(
+                        new Vector3Int(n.Position.x, n.Position.y + nodePositionDelta.y, n.Position.z));
+                    tilesToFill.Add(
+                        new Vector3Int(n.Position.x + nodePositionDelta.x, n.Position.y, n.Position.z-1));
+                    tilesToFill.Add(
+                        new Vector3Int(n.Position.x, n.Position.y + nodePositionDelta.y, n.Position.z-1));
+                }
+                else
+                {
+                    tilesToFill.Add(new Vector3Int(n.Position.x + nodePositionDelta.x, n.Position.y, n.Position.z));
+                    tilesToFill.Add(new Vector3Int(n.Position.x, n.Position.y + nodePositionDelta.y, n.Position.z));
+                    tilesToFill.Add(new Vector3Int(n.Position.x - nodePositionDelta.x, n.Position.y, n.Position.z));
+                    tilesToFill.Add(new Vector3Int(n.Position.x, n.Position.y - nodePositionDelta.y, n.Position.z));
+                }
+
+                tilesToClear.Add(new Vector3Int(n.Position.x + nodePositionDelta.x, n.Position.y, n.Position.z + 1));
+                tilesToClear.Add(new Vector3Int(n.Position.x, n.Position.y + nodePositionDelta.y, n.Position.z + 1));
+                tilesToClear.Add(new Vector3Int(n.Position.x + nodePositionDelta.x, n.Position.y, n.Position.z + 2));
+                tilesToClear.Add(new Vector3Int(n.Position.x, n.Position.y + nodePositionDelta.y, n.Position.z + 2));
+                tilesToClear.Add(new Vector3Int(n.Position.x - nodePositionDelta.x, n.Position.y, n.Position.z + 1));
+                tilesToClear.Add(new Vector3Int(n.Position.x, n.Position.y - nodePositionDelta.y, n.Position.z + 1));
+                tilesToClear.Add(new Vector3Int(n.Position.x - nodePositionDelta.x, n.Position.y, n.Position.z + 2));
+                tilesToClear.Add(new Vector3Int(n.Position.x, n.Position.y - nodePositionDelta.y, n.Position.z + 2));
             }
 
-            previousNodeHasTile = thisNodeHasTile;
-            pathAreaToFill.Add(new List<Vector3Int>
+            else if (nodePositionDelta.x != 0) // Path is moving in the x-axis
             {
-                new Vector3Int(n.Position.x - 1, n.Position.y - 1, n.Position.z),
-                new Vector3Int(n.Position.x + 1, n.Position.y + 1, n.Position.z),
-            });
-            pathAreaToClear.Add(new List<Vector3Int>
+                if (fillingStairs)
+                {
+                    tilesToFillStairsY.Add(new Vector3Int(n.Position.x, n.Position.y - nodePositionDelta.x, n.Position.z));
+                    tilesToFillStairsY.Add(new Vector3Int(n.Position.x, n.Position.y + nodePositionDelta.x, n.Position.z));
+                    tilesToFill.Add(new Vector3Int(n.Position.x, n.Position.y - nodePositionDelta.x, n.Position.z - 1));
+                    tilesToFill.Add(new Vector3Int(n.Position.x, n.Position.y + nodePositionDelta.x, n.Position.z - 1));
+                }
+                else
+                {
+                    tilesToFill.Add(new Vector3Int(n.Position.x, n.Position.y - nodePositionDelta.x, n.Position.z));
+                    tilesToFill.Add(new Vector3Int(n.Position.x, n.Position.y + nodePositionDelta.x, n.Position.z));
+                }
+                tilesToClear.Add(new Vector3Int(n.Position.x, n.Position.y - nodePositionDelta.x, n.Position.z + 1));
+                tilesToClear.Add(new Vector3Int(n.Position.x, n.Position.y + nodePositionDelta.x, n.Position.z + 1));
+                tilesToClear.Add(new Vector3Int(n.Position.x, n.Position.y - nodePositionDelta.x, n.Position.z + 2));
+                tilesToClear.Add(new Vector3Int(n.Position.x, n.Position.y + nodePositionDelta.x, n.Position.z + 2));
+            }
+
+            else if (nodePositionDelta.y != 0) // Path is moving in the y-axis
             {
-                new Vector3Int(n.Position.x - 1, n.Position.y - 1, n.Position.z + 1),
-                new Vector3Int(n.Position.x + 1, n.Position.y + 1, n.Position.z + 1),
-            });
-            pathAreaToClear.Add(new List<Vector3Int>
-            {
-                new Vector3Int(n.Position.x - 1, n.Position.y - 1, n.Position.z + 2),
-                new Vector3Int(n.Position.x + 1, n.Position.y + 1, n.Position.z + 2),
-            });
-            //world.Grid.FillArea(new Vector3Int(n.Position.x-1, n.Position.y-1, n.Position.z), new Vector3Int(n.Position.x + 1, n.Position.y + 1, n.Position.z), pathTile);
+                if (fillingStairs)
+                {
+                    tilesToFillStairsX.Add(new Vector3Int(n.Position.x - nodePositionDelta.y, n.Position.y, n.Position.z));
+                    tilesToFillStairsX.Add(new Vector3Int(n.Position.x + nodePositionDelta.y, n.Position.y, n.Position.z));
+                    tilesToFill.Add(new Vector3Int(n.Position.x - nodePositionDelta.y, n.Position.y, n.Position.z - 1));
+                    tilesToFill.Add(new Vector3Int(n.Position.x + nodePositionDelta.y, n.Position.y, n.Position.z - 1));
+                }
+                else
+                {
+                    tilesToFill.Add(new Vector3Int(n.Position.x - nodePositionDelta.y, n.Position.y, n.Position.z));
+                    tilesToFill.Add(new Vector3Int(n.Position.x + nodePositionDelta.y, n.Position.y, n.Position.z));
+                }
+                tilesToClear.Add(new Vector3Int(n.Position.x - nodePositionDelta.y, n.Position.y, n.Position.z + 1));
+                tilesToClear.Add(new Vector3Int(n.Position.x + nodePositionDelta.y, n.Position.y, n.Position.z + 1));
+                tilesToClear.Add(new Vector3Int(n.Position.x - nodePositionDelta.y, n.Position.y, n.Position.z + 2));
+                tilesToClear.Add(new Vector3Int(n.Position.x + nodePositionDelta.y, n.Position.y, n.Position.z + 2));
+            }
         }
 
-        foreach (List<Vector3Int> area in pathAreaToClear)
+        foreach (Vector3Int position in tilesToClear)
         {
-            await Task.Delay(delayTime * 5);
-            world.Grid.FillArea(area[0], area[1], null);
+            await Task.Delay(delayTime * 3);
+            world.Grid.SetTile(position, null);
         }
-
-        foreach (List<Vector3Int> area in pathAreaToFill)
+        foreach (Vector3Int position in tilesToFill)
         {
-            await Task.Delay(delayTime * 5);
-            world.Grid.FillArea(area[0], area[1], pathTile);
+            await Task.Delay(delayTime * 10);
+            world.Grid.SetTile(position, pathTile);
+        }
+        foreach (Vector3Int position in tilesToFillStairsY)
+        {
+            await Task.Delay(delayTime * 10);
+            world.Grid.SetTile(position, pathStairTileY);
+        }
+        foreach (Vector3Int position in tilesToFillStairsX)
+        {
+            await Task.Delay(delayTime * 10);
+            world.Grid.SetTile(position, pathStairTileX);
         }
     }
 
-    private async Task<bool> SpawnRoom(Room room, Vector3Int positionOffset)
+    private async Task<bool> SpawnRoom(Room room, Vector3Int positionOffset, bool addOrigin = true)
     {
         TileDictionary tileDictionary = new TileDictionary();
         bool valid = true;
@@ -219,8 +301,13 @@ public class ProceduralGeneration : MonoBehaviour
             world.Tilemaps[pos.z].SetTile(new Vector3Int(pos.x, pos.y, 0), tile);
             await Task.Delay(delayTime);
         }
-        roomOrigins.Add(positionOffset + room.roomOrigin);
-        roomOriginsDistances.Add((positionOffset + room.roomOrigin - startRoomOrigin).magnitude);
+
+        if (addOrigin)
+        {
+            roomOrigins.Add(positionOffset + room.roomOrigin);
+            roomOriginsDistances.Add((positionOffset + room.roomOrigin - startRoomOrigin).magnitude);
+        }
+
         return true;
     }
 }

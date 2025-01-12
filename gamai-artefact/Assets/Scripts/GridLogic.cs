@@ -47,7 +47,7 @@ public class NodeGrid
     {
         CreateTileDictionary();
         var layers = tilemaps.Count;
-        Dimensions = new(width, height, layers);
+        Dimensions = new(width, height, layers - 1);
         Tilemaps = tilemaps;
         Nodes = new Node[width, height, layers];
         for (var z = 0; z < layers; z++)
@@ -174,11 +174,8 @@ public class NodeGrid
             for (int y = pos1.y; y < pos2.y; y++)
             {
                 SetTile(new Vector3Int(x, y, pos1.z), tile);
-                Debug.Log($"{x}, {y}, {tile}");
-                
             }
         }
-        Debug.Log(Tilemaps[0].GetTile<CustomTile>(new Vector3Int(0, 0, 0)));
     }
 }
 
@@ -213,8 +210,8 @@ public class AStar
 {
     private const int DIAGONAL_COST = 14;
     private const int STRAIGHT_COST = 10;
-    private const int LAYER_COST = 24;
-    private const int NULL_TILE_PENALTY = 25; // Penalty for traversing null tiles
+    private const int LAYER_COST = 200;
+    private const int NULL_TILE_PENALTY = 250; // Penalty for traversing null tiles
 
     private readonly NodeGrid _grid;
     private List<Node> _searchedNodes;
@@ -259,11 +256,11 @@ public class AStar
         startNode.UpdateFCost();
 
         var i = 0;
-        while (_unsearchedNodes.Count > 0 && i < 10000)
+        while (_unsearchedNodes.Count > 0 && i < 100000)
         {
             i++;
             var currentNode = FindLowestFCostNode(_unsearchedNodes);
-
+            Debug.Log($"{currentNode.Position}, {i}");
             if (currentNode == endNode)
             {
                 return CalculatePath(endNode);
@@ -279,14 +276,14 @@ public class AStar
             if (!hasTile && !allowNullTiles) continue;
 
             List<Node> adjacents = new();
-            FindAdjacents(currentNode.Position, ref adjacents, false, allowNullTiles);
+            FindAdjacents(currentNode.Position, ref adjacents, false, allowNullTiles, z1);
 
             // Check adjacent layers if applicable
             if (currentNode.Position.z >= 1 && currentTile != null && currentTile.layerTraversal)
-                FindAdjacents(new Vector3Int(currentNode.Position.x, currentNode.Position.y, currentNode.Position.z - 1), ref adjacents, false, allowNullTiles);
+                FindAdjacents(new Vector3Int(currentNode.Position.x, currentNode.Position.y, currentNode.Position.z - 1), ref adjacents, false, allowNullTiles, z1);
 
-            if (currentNode.Position.z < _grid.Dimensions.z)
-                FindAdjacents(new Vector3Int(currentNode.Position.x, currentNode.Position.y, currentNode.Position.z + 1), ref adjacents, true, allowNullTiles);
+            if (currentNode.Position.z < _grid.Dimensions.z - 1)
+                FindAdjacents(new Vector3Int(currentNode.Position.x, currentNode.Position.y, currentNode.Position.z + 1), ref adjacents, true, allowNullTiles, z1);
 
             foreach (var adjacentNode in adjacents)
             {
@@ -313,7 +310,18 @@ public class AStar
                 if (!adjacentHasTile && allowNullTiles)
                 {
                     movementCost += NULL_TILE_PENALTY;
+                    if (adjacentNode.Position.z != currentNode.Position.z && !currentTile && !hasTile)
+                    {
+                        movementCost -= 50; // more likely to traverse layers
+                    }
                 }
+
+                if (currentNode.Position.z < _grid.Dimensions.z - 1 && _grid.HasTile(new Vector3Int(currentNode.Position.x, currentNode.Position.y,
+                        currentNode.Position.z + 1)))
+                {
+                    movementCost += 100; // less likely to pathfind if there isn't space to actually walk
+                }
+
 
                 int tentativeGCost = currentNode.GCost + movementCost;
 
@@ -361,7 +369,7 @@ public class AStar
         return lowestFCostNode;
     }
 
-    private void FindAdjacents(Vector3Int position, ref List<Node> adjacents, bool checkStairs = false, bool allowNullTiles = false)
+    private void FindAdjacents(Vector3Int position, ref List<Node> adjacents, bool checkStairs = false, bool allowNullTiles = false, int destinationLayer = 0)
     {
         var directions = new List<Vector2Int> {
             new Vector2Int(position.x - 1, position.y), new Vector2Int(position.x + 1, position.y),
@@ -377,16 +385,31 @@ public class AStar
                   direction.y > _grid.Dimensions.y / 2 || direction.y < -_grid.Dimensions.y / 2))
             {
                 var adjacentPosition = new Vector3Int(direction.x, direction.y, position.z);
-                var hasTile = _grid.CheckTileValid(adjacentPosition);
 
-                // Add node if it has a tile or null tiles are allowed
-                if ((hasTile || allowNullTiles) &&
-                    (!checkStairs || (hasTile && _grid.GetTile(adjacentPosition).layerTraversal)))
+                if (_grid.CheckTileValid(new Vector3Int(direction.x, direction.y, position.z)) &&
+                    (!checkStairs ||  _grid.GetTile(adjacentPosition).layerTraversal))
                 {
                     adjacents.Add(_grid.GetNodeFromCell(direction.x, direction.y, position.z));
                 }
+                // If allowNullTiles is true, add adjacent layers
+                if (allowNullTiles)
+                {
+                    //CustomTile thisTile = _grid.GetTile(position);
+                    //if (thisTile != null) continue;
+                    // Check layer above
+                    if (position.z + 1 < _grid.Dimensions.z)
+                        adjacents.Add(_grid.GetNodeFromCell(direction.x, direction.y, position.z + 1));
+                    
+
+                    // Check layer below
+                    if (position.z - 1 > 0)
+                        adjacents.Add(_grid.GetNodeFromCell(direction.x, direction.y, position.z - 1));
+                    
+                }
             }
         }
+
+        
     }
 
     public int CalculateDistanceCost(Node a, Node b) {

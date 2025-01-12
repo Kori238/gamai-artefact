@@ -65,7 +65,6 @@ public class Movement : MonoBehaviour
             if (selectedNode == currentNode) continue;
             if (!_world.Tilemaps[layer].HasTile(cellPos) ||
                 !_world.Tilemaps[layer].GetTile<CustomTile>(cellPos).walkable) continue;
-            Debug.Log(currentPos + " " + selectedNode.Position);
             path = _world.Pathfinding.FindPath(currentPos.x, currentPos.y, currentPos.z,
                 selectedNode.Position.x, selectedNode.Position.y, selectedNode.Position.z);
             destinationNode = selectedNode;
