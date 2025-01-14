@@ -1,10 +1,7 @@
 using Newtonsoft.Json;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Runtime.Serialization;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -15,7 +12,7 @@ public class RoomEditor : MonoBehaviour
     public string newRoomName = "";
     public bool attemptLoad = false;
     public bool attemptSave = false;
-    public string roomDirPath = "C:/Users/kori/gamai-artefact/gamai-artefact/Assets/Rooms/";
+    public string roomDirPath = "C:/Users/kori/gamai-artefact/gamai-artefact/Assets/Rooms/Resources/";
     public RoomTypes roomType = RoomTypes.Debug;
     public GridSetup world;
     public Vector3Int roomOrigin;
@@ -198,12 +195,25 @@ public class WrappedTilemaps
     }
 }
 
+
 public class TileDictionary
 {
     public Dictionary<string, CustomTile> dict;
     public TileDictionary()
     {
         dict = new Dictionary<string, CustomTile>();
+        foreach (var asset in Resources.LoadAll<CustomTile>(""))
+        {
+            try
+            {
+                dict.Add(asset.name, asset);
+            }
+            catch (ArgumentException e)
+            {
+                Debug.LogError($"Tile could not be added to dictionary as it's name is duplicate {e.Message}, {e.StackTrace}");
+            }
+        }
+        /*dict = new Dictionary<string, CustomTile>();
         foreach (var asset in AssetDatabase.FindAssets("t:CustomTile"))
         {
             var tile = AssetDatabase.LoadAssetAtPath<CustomTile>(AssetDatabase.GUIDToAssetPath(asset));
@@ -215,7 +225,7 @@ public class TileDictionary
             {
                 Debug.LogError($"Tile could not be added to dictionary as it's name is duplicate {e.Message}, {e.StackTrace}");
             }
-        }
+        }*/
     }
 }
 

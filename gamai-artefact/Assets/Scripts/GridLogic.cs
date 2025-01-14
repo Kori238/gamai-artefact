@@ -1,14 +1,8 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using JetBrains.Annotations;
-using Unity.VisualScripting;using UnityEditor;
 using UnityEngine;
 using UnityEngine.Tilemaps;
-using UnityEngine.UIElements;
 using Newtonsoft.Json;
-using static UnityEditor.Experimental.GraphView.GraphView;
 
 [Serializable]
 public class Node
@@ -45,7 +39,6 @@ public class NodeGrid
 
     public NodeGrid(int width, int height, List<Tilemap> tilemaps)
     {
-        CreateTileDictionary();
         var layers = tilemaps.Count;
         Dimensions = new(width, height, layers - 1);
         Tilemaps = tilemaps;
@@ -59,47 +52,6 @@ public class NodeGrid
                     var position = new Vector3Int(x - width / 2, y - height / 2, z);
                     Nodes[x, y, z] = new Node(position);
                 }
-            }
-        }
-    }
-    public NodeGrid(WrappedGrid wrappedGrid)
-    {
-        CreateTileDictionary();
-        GridSetup gridObject = GameObject.FindObjectOfType<GridSetup>();
-        Tilemaps = gridObject.Tilemaps;
-        foreach (KeyValuePair<Vector3Int, string> entry in wrappedGrid.Tilemaps)
-        {
-            Vector3Int pos = entry.Key;
-            CustomTile tile = TileDictionary.GetValueOrDefault(entry.Value);
-            Tilemaps[pos.z].SetTile(new Vector3Int(pos.x, pos.y, 0), tile);
-        }
-        Dimensions = new(gridObject.gridDimensions.x, gridObject.gridDimensions.y, Tilemaps.Count);
-        Nodes = new Node[gridObject.gridDimensions.x, gridObject.gridDimensions.y, Tilemaps.Count];
-        for (var z = 0; z < Tilemaps.Count; z++)
-        {
-            for (var x = 0; x < gridObject.gridDimensions.x; x++)
-            {
-                for (var y = 0; y < gridObject.gridDimensions.y; y++)
-                {
-                    var position = new Vector3Int(x - gridObject.gridDimensions.x / 2, y - gridObject.gridDimensions.y / 2, z);
-                    Nodes[x, y, z] = new Node(position);
-                }
-            }
-        }
-    }
-
-    private void CreateTileDictionary()
-    {
-        foreach (var asset in AssetDatabase.FindAssets("t:CustomTile"))
-        {
-            var tile = AssetDatabase.LoadAssetAtPath<CustomTile>(AssetDatabase.GUIDToAssetPath(asset));
-            try
-            {
-                TileDictionary.Add(tile.name, tile);
-            }
-            catch (ArgumentException e)
-            {
-                Debug.LogError($"Tile could not be added to dictionary as it's name is duplicate {e.Message}, {e.StackTrace}");
             }
         }
     }
@@ -164,18 +116,6 @@ public class NodeGrid
     public void SetTile(Vector3Int position, CustomTile tile)
     {
         Tilemaps[position.z].SetTile(new Vector3Int(position.x, position.y, 0), tile);
-    }
-
-    public void FillArea(Vector3Int pos1, Vector3Int pos2, CustomTile tile)
-    {
-        //tile = Tilemaps[0].GetTile<CustomTile>(new Vector3Int(0, 0, 0));
-        for (int x = pos1.x; x < pos2.x; x++)
-        {
-            for (int y = pos1.y; y < pos2.y; y++)
-            {
-                SetTile(new Vector3Int(x, y, pos1.z), tile);
-            }
-        }
     }
 }
 

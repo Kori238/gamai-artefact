@@ -1,12 +1,8 @@
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Tilemaps;
-using UnityEngine.UIElements;
 using Random = System.Random;
 
 public class Enemy : MonoBehaviour
@@ -21,9 +17,6 @@ public class Enemy : MonoBehaviour
     [SerializeField] private int viewRange = 12;
     [SerializeField] private SortingGroup visualLayer;
 
-    private LineOfSight _lineOfSight;
-    private Vector3Int _lastKnownPlayerPosition;
-    private bool _hasLastKnownPosition = false;
     private Task MoveNextTask;
     [SerializeField] private SpriteRenderer sprite;
 
@@ -62,7 +55,6 @@ public class Enemy : MonoBehaviour
 
     private void OnPlayerMoved()
     {
-        Debug.Log("player moved ");
         playerMovement.enemiesMoving++;
         UpdatePathToPlayer();
         TraversePath();
@@ -172,16 +164,5 @@ public class Enemy : MonoBehaviour
             playerPos.x, playerPos.y, playerPos.z);
         _pathIndex = 1;
         sprite.color = Color.green;
-    }
-
-private Vector3Int WorldToCellPosition(Vector3 worldPos)
-    {
-        Vector3Int cellPos = Vector3Int.zero;
-        for (int layer = _grid.Dimensions.z - 1; layer >= 0; layer--)
-        {
-            Tilemap map = playerMovement._world.Tilemaps[layer];
-            cellPos = map.WorldToCell(worldPos);
-        }
-        return new Vector3Int(cellPos.x, cellPos.y, cellPos.z);
     }
 }

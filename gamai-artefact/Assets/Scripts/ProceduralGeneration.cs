@@ -1,20 +1,10 @@
 using System;
 using Newtonsoft.Json;
-using System.Collections;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Numerics;
 using System.Threading.Tasks;
-using System.Xml.Schema;
-using TMPro;
-using Unity.Mathematics;
-using UnityEditor;
 using UnityEngine;
-using UnityEngine.PlayerLoop;
 using UnityEngine.Tilemaps;
 using Random = System.Random;
-using static UnityEngine.UI.Image;
 using Vector2 = UnityEngine.Vector2;
 using Vector3 = UnityEngine.Vector3;
 
@@ -48,24 +38,25 @@ public class ProceduralGeneration : MonoBehaviour
     {
         playerCamera.enabled = false;
         generationCamera.enabled = true;
-        // Initialize room lists, create possible asset paths where rooms are stored for the find assets function
-        List<string> roomsPath = new();
-        foreach (var type in Enum.GetValues(typeof(RoomTypes)))
+
+        foreach (var asset in Resources.LoadAll<TextAsset>("Rooms"))
         {
-            Debug.Log(type.ToString());
-            roomsPath.Add("Assets/Rooms/" + type);
-            Enum.TryParse(type.ToString(), out RoomTypes enumType);
-            allRooms.Add(enumType, new List<Room>());
-        }
-        // Find all assets that are a text asset in the rooms directories and add these rooms to the allRooms dict
-        foreach (var asset in AssetDatabase.FindAssets("t:TextAsset", roomsPath.ToArray()))
-        {
-            string path = AssetDatabase.GUIDToAssetPath(asset);
-            Room room = JsonConvert.DeserializeObject<Room>(File.ReadAllText(path));
+            Debug.Log(asset.text);
+            Room room = JsonConvert.DeserializeObject<Room>(asset.text);
+            if (room == null)
+            {
+                Debug.Log("weird asset attempted deserialization");
+                continue;
+            }
+            Debug.Log(room.roomType);
+            if (!allRooms.ContainsKey(room.roomType))
+            {
+                allRooms.Add(room.roomType, new List<Room>());
+            }
             allRooms.GetValueOrDefault(room.roomType).Add(room);
         }
 
-        world = GameObject.FindObjectOfType<GridSetup>();
+        world = FindObjectOfType<GridSetup>();
         foreach (Tilemap tilemap in world.Tilemaps)
         {
             tilemap.ClearAllTiles();

@@ -1,12 +1,6 @@
-using System;using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using Newtonsoft.Json;
-using Unity.VisualScripting;
-using UnityEditor.UI;
 using UnityEngine;
 using UnityEngine.Tilemaps;
-using Random = System.Random;
 [ExecuteAlways]
 
 public class GridSetup : MonoBehaviour

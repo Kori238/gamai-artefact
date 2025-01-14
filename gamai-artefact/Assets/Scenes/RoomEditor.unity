@@ -155,7 +155,7 @@ MonoBehaviour:
   newRoomName: default
   attemptLoad: 0
   attemptSave: 0
-  roomDirPath: C:/Users/kori/gamai-artefact/gamai-artefact/Assets/Rooms/
+  roomDirPath: C:/Users/kori/gamai-artefact/gamai-artefact/Assets/Resources/Rooms
   roomType: 6
   world: {fileID: 242120775}
   roomOrigin: {x: 7, y: 7, z: 0}
