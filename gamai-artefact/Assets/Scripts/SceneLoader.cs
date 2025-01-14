@@ -69,5 +69,6 @@ public class SceneLoader : MonoBehaviour
         Level8,
         Level9,
         Level10,
-        NextLevel
+        NextLevel,
+        Start1
     }

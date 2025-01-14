@@ -58,7 +58,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerMovement: {fileID: 0}
+  position: {x: 0, y: 0, z: 0}
   movementSpeed: 10
+  _startingLayer: 0
+  viewRange: 6
+  visualLayer: {fileID: 8686467876053367683}
+  sprite: {fileID: 8686467877287919048}
 --- !u!1 &8686467877287919050
 GameObject:
   m_ObjectHideFlags: 0

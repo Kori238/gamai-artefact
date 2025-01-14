@@ -260,7 +260,6 @@ public class AStar
         {
             i++;
             var currentNode = FindLowestFCostNode(_unsearchedNodes);
-            Debug.Log($"{currentNode.Position}, {i}");
             if (currentNode == endNode)
             {
                 return CalculatePath(endNode);
@@ -369,7 +368,7 @@ public class AStar
         return lowestFCostNode;
     }
 
-    private void FindAdjacents(Vector3Int position, ref List<Node> adjacents, bool checkStairs = false, bool allowNullTiles = false, int destinationLayer = 0)
+    public void FindAdjacents(Vector3Int position, ref List<Node> adjacents, bool checkStairs = false, bool allowNullTiles = false, int destinationLayer = 0)
     {
         var directions = new List<Vector2Int> {
             new Vector2Int(position.x - 1, position.y), new Vector2Int(position.x + 1, position.y),

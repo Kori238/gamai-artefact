@@ -121,6 +121,13 @@ public class Movement : MonoBehaviour
             }
             else await MoveToCell(node);
         }
+
+        PlayerMoved?.Invoke();
+        await Task.Run(() =>
+        {
+            while (enemiesMoving > 0); // Wait for all enemies to finish moving
+        });
+
         if (_pathIndex >= _path.Nodes.Count - 1)
         {
             _path = null;
@@ -128,12 +135,6 @@ public class Movement : MonoBehaviour
             if (_interactWithPodiumWhenPathFinished) _podiumToInteract.Interact(this);
             return;
         }
-
-        PlayerMoved?.Invoke();
-        await Task.Run(() =>
-        {
-            while (enemiesMoving > 0) ; // Wait for all enemies to finish moving
-        });
 
         _pathIndex++;
     }

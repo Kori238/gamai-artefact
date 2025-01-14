@@ -15,6 +15,7 @@ using UnityEngine.PlayerLoop;
 using UnityEngine.Tilemaps;
 using Random = System.Random;
 using static UnityEngine.UI.Image;
+using Vector2 = UnityEngine.Vector2;
 using Vector3 = UnityEngine.Vector3;
 
 public class ProceduralGeneration : MonoBehaviour
@@ -35,6 +36,7 @@ public class ProceduralGeneration : MonoBehaviour
     public CustomTile pathStairTileX;
     public Camera generationCamera;
     public Camera playerCamera;
+    public GameObject enemy;
 
     public int roomCount = 5;
     void Start()
@@ -123,6 +125,8 @@ public class ProceduralGeneration : MonoBehaviour
             }
         }
 
+        List<Vector3Int> enemySpawnLocations = new List<Vector3Int>();
+
         int max = roomOrigins.Count; //this would dynamically update so cannot be put inside the for loop
         for (int i = 0; i < max; i++)
         {
@@ -138,8 +142,27 @@ public class ProceduralGeneration : MonoBehaviour
             }
             //await ConnectRooms(startRoomOrigin, roomOrigins[index]);
             await ConnectRooms(roomOrigins[index], startRoomOrigin);
+            enemySpawnLocations.Add(roomOrigins[index]);
+            Debug.Log(enemySpawnLocations.Count);
             roomOriginsDistances.Remove(roomOriginsDistances[index]);
             roomOrigins.Remove(roomOrigins[index]);
+        }
+
+        Debug.Log(enemySpawnLocations.Count);
+        foreach (Vector3Int location in enemySpawnLocations)
+        {
+            Debug.Log(location);
+            var enemyObj = Instantiate(enemy);
+            Debug.Log(enemyObj);
+            Enemy enemyScript = enemyObj.GetComponent<Enemy>();
+            Debug.Log(enemyScript);
+            enemyScript.position = location;
+            Debug.Log(enemyScript.position);
+            enemyScript._startingLayer = location.z;
+            var transformPos = (Vector2)world.Tilemaps[location.z].GetCellCenterWorld(new Vector3Int(location.x-location.z, location.y-location.z, 0));
+            enemyScript.transform.position = new Vector3(transformPos.x, transformPos.y, 0);
+            Debug.Log(enemyScript.transform.position);
+            await Task.Delay(delayTime * 20);
         }
         generationCamera.enabled = false;
         playerCamera.enabled = true;
@@ -168,6 +191,8 @@ public class ProceduralGeneration : MonoBehaviour
             if (i > 0) previousNode = path.Nodes[i - 1];
             if (world.Grid.HasTile(n.Position) && world.Grid.HasTile(nextNode.Position) && world.Grid.HasTile(previousNode.Position)) continue;
             Vector3Int nodePositionDelta = n.Position - previousNode.Position;
+            Vector3Int nextNodePositionDelta = nextNode.Position - n.Position;
+            int stairsSign = -Math.Sign(nodePositionDelta.z + nextNodePositionDelta.z);
             bool fillingStairs = false;
             if (previousNode.Position.z < n.Position.z || nextNode.Position.z < n.Position.z)
             {
@@ -189,14 +214,14 @@ public class ProceduralGeneration : MonoBehaviour
             {
                 if (fillingStairs)
                 {
-                    tilesToFillStairsX.Add(
-                        new Vector3Int(n.Position.x + nodePositionDelta.x, n.Position.y, n.Position.z));
                     tilesToFillStairsY.Add(
-                        new Vector3Int(n.Position.x, n.Position.y + nodePositionDelta.y, n.Position.z));
+                        new Vector3Int(n.Position.x + nodePositionDelta.x * stairsSign, n.Position.y, n.Position.z));
+                    tilesToFillStairsX.Add(
+                        new Vector3Int(n.Position.x, n.Position.y + nodePositionDelta.y * stairsSign, n.Position.z));
                     tilesToFill.Add(
-                        new Vector3Int(n.Position.x + nodePositionDelta.x, n.Position.y, n.Position.z-1));
+                        new Vector3Int(n.Position.x + nodePositionDelta.x * stairsSign, n.Position.y, n.Position.z-1));
                     tilesToFill.Add(
-                        new Vector3Int(n.Position.x, n.Position.y + nodePositionDelta.y, n.Position.z-1));
+                        new Vector3Int(n.Position.x, n.Position.y + nodePositionDelta.y * stairsSign, n.Position.z-1));
                 }
                 else
                 {
@@ -259,23 +284,23 @@ public class ProceduralGeneration : MonoBehaviour
 
         foreach (Vector3Int position in tilesToClear)
         {
-            await Task.Delay(delayTime * 3);
             world.Grid.SetTile(position, null);
+            await Task.Delay(delayTime * 3);
         }
         foreach (Vector3Int position in tilesToFill)
         {
-            await Task.Delay(delayTime * 10);
             world.Grid.SetTile(position, pathTile);
+            await Task.Delay(delayTime * 10);
         }
         foreach (Vector3Int position in tilesToFillStairsY)
         {
-            await Task.Delay(delayTime * 10);
             world.Grid.SetTile(position, pathStairTileY);
+            await Task.Delay(delayTime * 10);
         }
         foreach (Vector3Int position in tilesToFillStairsX)
         {
-            await Task.Delay(delayTime * 10);
             world.Grid.SetTile(position, pathStairTileX);
+            await Task.Delay(delayTime * 10);
         }
     }
 

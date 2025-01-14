@@ -2,8 +2,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Tilemaps;
+using UnityEngine.UIElements;
+using Random = System.Random;
 
 public class Enemy : MonoBehaviour
 {
@@ -11,13 +15,18 @@ public class Enemy : MonoBehaviour
     private NodeGrid _grid;
     private Path _path;
     private int _pathIndex = 0;
+    public Vector3Int position;
     [SerializeField] private int movementSpeed = 10;
+    public int _startingLayer = 0;
+    [SerializeField] private int viewRange = 12;
+    [SerializeField] private SortingGroup visualLayer;
 
     private LineOfSight _lineOfSight;
     private Vector3Int _lastKnownPlayerPosition;
     private bool _hasLastKnownPosition = false;
+    private Task MoveNextTask;
+    [SerializeField] private SpriteRenderer sprite;
 
-    private Vector3Int lastKnownPlayerPosition;
     private LineOfSight los;
 
     void Start()
@@ -34,12 +43,13 @@ public class Enemy : MonoBehaviour
 
         _grid = playerMovement._world.Grid;
         playerMovement.PlayerMoved += OnPlayerMoved;
+        var cell = playerMovement._world.Tilemaps[_startingLayer].WorldToCell(transform.position);
+        transform.position = playerMovement._world.Tilemaps[_startingLayer].GetCellCenterWorld(cell);
+        position = new Vector3Int(cell.x, cell.y, _startingLayer);
+        visualLayer.sortingOrder = _startingLayer + 1;
 
         // Initialize Line of Sight
         los = new LineOfSight(_grid);
-
-        // Set an initial last known position to the player's start
-        lastKnownPlayerPosition = Vector3Int.one * 999;
     }
 
     private void OnDestroy()
@@ -52,88 +62,50 @@ public class Enemy : MonoBehaviour
 
     private void OnPlayerMoved()
     {
-        UpdateAndMove();
+        Debug.Log("player moved ");
+        playerMovement.enemiesMoving++;
+        UpdatePathToPlayer();
+        TraversePath();
     }
 
-    private async Task UpdatePathToLastKnownPosition()
+    private void RandomPath()
     {
-        if (lastKnownPlayerPosition == Vector3Int.one * 999) return; // Check if there isn't a last known position
+        Node currentNode = _grid.GetNodeFromCell(position.x, position.y, position.z);
+        CustomTile currentTile = _grid.GetTile(currentNode.Position);
+        List<Node> adjacents = new();
+        playerMovement._world.Pathfinding.FindAdjacents(currentNode.Position, ref adjacents, false);
 
-        Vector3Int currentPos = WorldToCellPosition(transform.position);
-        Node currentNode = _grid.GetNodeFromCell(currentPos.x, currentPos.y, currentPos.z);
+        // Check adjacent layers if applicable
+        if (currentNode.Position.z >= 1 && currentTile != null && currentTile.layerTraversal)
+            playerMovement._world.Pathfinding.FindAdjacents(new Vector3Int(currentNode.Position.x, currentNode.Position.y, currentNode.Position.z - 1), ref adjacents, false);
 
-        _path = playerMovement._world.Pathfinding.FindPath(currentPos.x, currentPos.y, currentPos.z, lastKnownPlayerPosition.x, lastKnownPlayerPosition.y, lastKnownPlayerPosition.z);
-        _pathIndex = 1;
+        if (currentNode.Position.z < _grid.Dimensions.z - 1)
+            playerMovement._world.Pathfinding.FindAdjacents(new Vector3Int(currentNode.Position.x, currentNode.Position.y, currentNode.Position.z + 1), ref adjacents, true);
 
-        if (_path != null && _path.Nodes.Count > 1)
+        Random rand = new Random();
+        int attempts = 0;
+        bool foundPath = false;
+        while (attempts < 3 && !foundPath)
         {
-            await FollowPlayerPath();
-            if (Vector3Int.Equals(lastKnownPlayerPosition, _path.Nodes.Last().Position))
+            Node n = adjacents[rand.Next(0,adjacents.Count)];
+            Path path = playerMovement._world.Pathfinding.FindPath(position.x, position.y, position.z, n.Position.x,
+                n.Position.y, n.Position.z);
+            if (path != null)
             {
-                MoveRandomly();
+                foundPath = true;
+                _path = path;
+                _pathIndex = 1;
+                sprite.color = Color.red;
             }
-        }
-        else
-        {
-            MoveRandomly();
-        }
-    }
-
-    private void MoveRandomly()
-    {
-        List<Vector3Int> directions = new List<Vector3Int>
-        {
-            new Vector3Int(1, 0, 0), new Vector3Int(-1, 0, 0),
-            new Vector3Int(0, 1, 0), new Vector3Int(0, -1, 0)
-            // Add more directions if you want diagonal movement or layer changes
-        };
-
-        Vector3Int currentPos = WorldToCellPosition(transform.position);
-        var currentZ = currentPos.z; // Keep current layer for random move
-
-        foreach (var direction in directions)
-        {
-            Vector3Int targetPos = currentPos + direction;
-            // Ensure we stay on the current layer
-            Node node = _grid.GetNodeFromCell(targetPos.x, targetPos.y, currentZ);
-
-            if (node != null && node.OccupiedBy == NodeOccupiers.None) // Move only if empty
-            {
-                MoveToCell(node);
-                return;
-            }
-        }
-    }
-
-    private async Task FollowPlayerPath()
-    {
-        if (los.HasLineOfSight(WorldToCellPosition(transform.position), playerMovement._position))
-        {
-            lastKnownPlayerPosition = playerMovement._position;
-        }
-
-        if (_path != null && _path.Nodes.Count > 1)
-        {
-            var nextNode = _path.Nodes[_pathIndex > _path.Nodes.Count - 1 ? _path.Nodes.Count - 1 : _pathIndex];
-            await MoveToCell(nextNode);
-            _pathIndex++;
-
-            // Reset path index if we've reached the end
-            if (_pathIndex >= _path.Nodes.Count)
-            {
-                _pathIndex = 0;
-                _path = null;
-            }
-        }
-        else
-        {
-            _pathIndex = 0;
+            attempts++;
         }
     }
 
     private async Task MoveToCell(Node node)
     {
         playerMovement.enemiesMoving++;
+        position = node.Position;
+        if (position.z + 1 > visualLayer.sortingOrder) visualLayer.sortingOrder = position.z + 1;
         Vector3 target = _grid.GetCenter(node.Position);
         Vector3 direction = target - transform.position;
         float distanceThisFrame = Time.deltaTime * movementSpeed;
@@ -148,45 +120,68 @@ public class Enemy : MonoBehaviour
         playerMovement.enemiesMoving--;
     }
 
-    private void UpdateAndMove()
+    private async Task TraversePath()
     {
-        if (los.HasLineOfSight(WorldToCellPosition(transform.position), playerMovement._position))
+        if (_path == null)
         {
-            lastKnownPlayerPosition = playerMovement._position;
-            UpdatePathToPlayer();
+            RandomPath();
+            if (_path == null)
+            {
+                Debug.LogError("Enemy could not find random path, is he in a void area??");
+                return;
+            }
         }
-        else
+        MoveNextTask = MoveNext();
+        await MoveNextTask;
+        playerMovement.enemiesMoving--;
+    }
+
+    public async Task MoveNext()
+    {
+        await Task.Delay(100);
+        if (!(_pathIndex >= _path.Nodes.Count))
         {
-            UpdatePathToLastKnownPosition();
+            var node = _path.Nodes[_pathIndex];
+            if (!_grid.HasTile(node.Position))
+            {
+                _pathIndex = 999;
+            }
+            else await MoveToCell(node);
         }
+        if (_pathIndex >= _path.Nodes.Count - 1)
+        {
+            _path = null;
+            _pathIndex = 1;
+            return;
+        }
+        _pathIndex++;
     }
 
     private void UpdatePathToPlayer()
     {
+        if (Vector3.Distance(playerMovement.transform.position, transform.position) > viewRange ||
+            !los.HasLineOfSight(position, playerMovement._position))
+        {
+            sprite.color = Color.yellow;
+            return;
+        }
+        Debug.Log(Vector3.Distance(playerMovement.transform.position, transform.position));
+        Debug.Log(los.HasLineOfSight(position, playerMovement._position));
         var playerPos = playerMovement._position;
-        Vector3Int currentPos = WorldToCellPosition(transform.position);
-        _path = playerMovement._world.Pathfinding.FindPath(currentPos.x, currentPos.y, currentPos.z,
+        _path = playerMovement._world.Pathfinding.FindPath(position.x, position.y, position.z,
             playerPos.x, playerPos.y, playerPos.z);
-        _pathIndex = 1; // Start from the second index
-
-        if (_path != null && _path.Nodes.Count > 1)
-            FollowPlayerPath().ConfigureAwait(false);
+        _pathIndex = 1;
+        sprite.color = Color.green;
     }
 
 private Vector3Int WorldToCellPosition(Vector3 worldPos)
     {
-        int z = playerMovement._position.z; // Assuming same layer as player for simplicity
         Vector3Int cellPos = Vector3Int.zero;
         for (int layer = _grid.Dimensions.z - 1; layer >= 0; layer--)
         {
             Tilemap map = playerMovement._world.Tilemaps[layer];
             cellPos = map.WorldToCell(worldPos);
-            if (map.HasTile(cellPos))
-            {
-                z = layer;
-                break;
-            }
         }
-        return new Vector3Int(cellPos.x, cellPos.y, z);
+        return new Vector3Int(cellPos.x, cellPos.y, cellPos.z);
     }
 }

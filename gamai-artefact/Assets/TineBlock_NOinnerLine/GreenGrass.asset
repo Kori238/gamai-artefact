@@ -35,6 +35,6 @@ MonoBehaviour:
   m_Flags: 1
   m_ColliderType: 1
   layerTraversal: 0
-  walkable: 0
+  walkable: 1
   goal: 0
   tileName: GreenGrass
